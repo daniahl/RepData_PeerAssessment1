@@ -8,18 +8,90 @@ output:
 
 ## Loading and preprocessing the data
 
+### Unzip the file
 
+The original repository contains a zip file of the data, as shown below:
+```{r}
+dir()
+```
+We first unzip the file and examine the contents again:
+```{r}
+unzip("activity.zip")
+dir()
+```
+
+### Reading the data
+
+```{r}
+library(tidyverse)
+d <- as_tibble(read_csv("activity.csv"))
+d
+```
+We see that the data are read in successfully.
 
 ## What is mean total number of steps taken per day?
 
+```{r}
+steps_per_day <- d %>% group_by(date) %>% dplyr::summarize(steps=sum(steps))
+```
+Plot a histogram:
+```{r}
+hist(steps_per_day$steps, xlab="Steps")
+```
+We see that the person usually walks 10000 to 15000 steps per day.
 
+* Mean steps per day: `r format(mean(steps_per_day$steps, na.rm=T), 2)`
+* Median steps per day: `r format(median(steps_per_day$steps, na.rm=T), 2)`
 
 ## What is the average daily activity pattern?
 
-
+To answer this question we need to look at all the intervals.
+```{r}
+mean_steps <- d %>% group_by(interval) %>% dplyr::summarize(mean=mean(steps, na.rm=T))
+```
+Then make a line plot to look at the activity pattern:
+```{r}
+plot(mean_steps$interval, mean_steps$mean, type="l", xlab="Interval", ylab="Number of steps", main="Average number of steps per interval")
+ix <- which.max(mean_steps$mean) #index of max steps
+```
+The interval with the maximum number of steps is `r mean_steps$interval[ix]`.
 
 ## Imputing missing values
 
+Calculate the total number of missing values:
+```{r}
+sum(is.na(d$steps))
+```
+Impute missing values with the mean, using the impute function from the Hmisc package:
+```{r}
+library(Hmisc)
+d$steps <- impute(d$steps, fun=mean)
+```
+Below we repeat the histogram from above to check the effect of imputation.
+```{r}
+steps_per_day <- d %>% group_by(date) %>% dplyr::summarize(steps=sum(steps))
+```
+Plot a histogram:
+```{r}
+hist(steps_per_day$steps, xlab="Steps")
+```
 
+* Mean steps per day: `r format(mean(steps_per_day$steps, na.rm=T), 2)`
+* Median steps per day: `r format(median(steps_per_day$steps, na.rm=T), 2)`
+
+We can see some effects of the imputation. A more sophisticated imputation strategy would be better.
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+First we create the day type factor.
+```{r}
+d$day_type <- as.factor(ifelse(weekdays(d$date)=="Saturday"|weekdays(d$date)=="Sunday", "weekend", "weekday"))
+```
+Then plot the steps for each day type:
+```{r}
+library(lattice)
+mean_steps <- d %>% group_by(interval, day_type) %>% dplyr::summarize(mean=mean(steps, na.rm=T))
+xyplot(mean_steps$mean ~ mean_steps$interval | day_type, data=mean_steps, type="l", ylab = "Number of steps", main="Activity pattern for weekdays and weekends", xlab = "Interval", layout=c(1,2))
+```
+
+
